@@ -1,0 +1,110 @@
+
+
+Sub ExtractAndClearTransactionData()
+
+    ' Variables declaration
+    Dim FilePath As String
+    Dim FileNum As Integer
+    Dim LineData As String
+    Dim ws As Worksheet
+    Dim RowNum As Long
+    Dim colsToCheck As Variant
+    Dim col As Variant
+    Dim rowEmpty As Boolean
+    Dim lastRow As Long
+    Dim i As Long
+    Dim fd As FileDialog
+    
+    ' Initialize the file dialog for selecting the text file
+    Set fd = Application.FileDialog(msoFileDialogFilePicker)
+    fd.Title = "Select the Finance Transaction Report"
+    fd.Filters.Add "Text Files", "*.txt", 1
+    fd.AllowMultiSelect = False
+    
+    ' Show the file dialog and get the selected file path
+    If fd.Show = -1 Then
+        FilePath = fd.SelectedItems(1)
+    Else
+        MsgBox "No file selected. Exiting macro."
+        Exit Sub
+    End If
+    
+    ' Open the file
+    FileNum = FreeFile
+    Open FilePath For Input As FileNum
+    
+    ' Set the worksheet for the output
+    Set ws = ThisWorkbook.Sheets("Transaction")
+    
+    ' Clear existing data in the sheet starting from row 2
+    ws.Rows("2:" & ws.Rows.Count).ClearContents
+    
+    ' Initialize row counter (Start at row 2)
+    RowNum = 2
+    
+    ' Read each line in the file
+    Do While Not EOF(FileNum)
+        Line Input #FileNum, LineData
+        
+        ' Extract and place data into separate columns
+        ws.Cells(RowNum, 1).Value = Trim(Mid(LineData, 1, 10))   ' TRAN DATE
+        ws.Cells(RowNum, 2).Value = Trim(Mid(LineData, 12, 9))   ' TRAN ID
+        ws.Cells(RowNum, 3).Value = Trim(Mid(LineData, 29, 13))  ' ACCOUNT NO
+        ws.Cells(RowNum, 4).Value = Trim(Mid(LineData, 50, 60))  ' PARTICULARS
+        ws.Cells(RowNum, 5).Value = Trim(Mid(LineData, 105, 15)) ' TRAN AMOUNT
+        ws.Cells(RowNum, 6).Value = Trim(Mid(LineData, 166, 2))  ' TRANSACTION TYPE
+        
+        ' Increment row counter
+        RowNum = RowNum + 1
+    Loop
+    
+    ' Close the file
+    Close FileNum
+    
+    ' Get the last row with data in the sheet
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    
+    ' Columns to check for missing data
+    colsToCheck = Array(1, 2, 3, 4, 5, 6) ' Columns TRAN DATE to TRANSACTION TYPE (A to F)
+    
+    ' Loop through each row to clear rows with missing data
+    For i = lastRow To 2 Step -1 ' Assuming headers are in the first row
+        rowEmpty = False
+        
+        ' Check if any column in the row is empty
+        For Each col In colsToCheck
+            If ws.Cells(i, col).Value = "" Then
+                rowEmpty = True
+                Exit For
+            End If
+        Next col
+        
+        ' Clear the row if any column is empty
+        If rowEmpty Then
+            ws.Rows(i).ClearContents
+        End If
+    Next i
+    
+    ' Delete rows where column A is "TRAN DATE" or "----------"
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    For i = lastRow To 2 Step -1
+        If ws.Cells(i, 1).Value = "TRAN DATE" Or ws.Cells(i, 1).Value = "----------" Then
+            ws.Rows(i).Delete
+        End If
+    Next i
+    
+    ' Delete any completely blank rows
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+    For i = lastRow To 2 Step -1
+        If Application.WorksheetFunction.CountA(ws.Rows(i)) = 0 Then
+            ws.Rows(i).Delete
+        End If
+    Next i
+    
+    ' Auto-fit column widths
+    ws.Columns.AutoFit
+    
+    MsgBox "Data extraction complete in Daily transaction report!"
+
+End Sub
+
